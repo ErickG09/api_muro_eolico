@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 import os
 from flask_cors import CORS
 from flask_migrate import Migrate
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import date
 
 app = Flask(__name__)
 CORS(app)
@@ -17,47 +19,50 @@ BASE_URL = '/api/v1'
  
  
 class WallData(db.Model):
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)  # Add a unique id field
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     propeller1 = db.Column(db.Float, nullable=False)
     propeller2 = db.Column(db.Float, nullable=False)
     propeller3 = db.Column(db.Float, nullable=False)
     propeller4 = db.Column(db.Float, nullable=False)
     propeller5 = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-   
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # Ya está correcto
+
     def __init__(self, propeller1, propeller2, propeller3, propeller4, propeller5):    
-        
         self.propeller1 = propeller1
         self.propeller2 = propeller2
         self.propeller3 = propeller3
         self.propeller4 = propeller4
         self.propeller5 = propeller5
-       
+
     def to_json(self):
         return {
+            'id': self.id,  # Siempre es buena idea incluir el id también
             'propeller1': self.propeller1,
             'propeller2': self.propeller2,
             'propeller3': self.propeller3,
             'propeller4': self.propeller4,
-            'propeller5': self.propeller5
+            'propeller5': self.propeller5,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')  # Incluir created_at
         }
 
     def __repr__(self):
-        return '<Task %r>' % self.propeller1
-   
+        return '<WallData %r>' % self.propeller1
+
  # -----------------------------------------------------------------------
 class DayTotal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     grupo1 = db.Column(db.Float, default=0)  # Sumatoria de propeller1 y propeller2
     grupo2 = db.Column(db.Float, default=0)  # Sumatoria de propeller3
     grupo3 = db.Column(db.Float, default=0)  # Sumatoria de propeller4 y propeller5
+    created_at = db.Column(db.Date, default=datetime.utcnow().date())  # Fecha del día
 
     def to_json(self):
         return {
             'id': self.id,
             'grupo1': self.grupo1,
             'grupo2': self.grupo2,
-            'grupo3': self.grupo3
+            'grupo3': self.grupo3,
+            'created_at': self.created_at.strftime('%Y-%m-%d')
         }
 
 # --- MAIN --------------------------------------------------------------------
@@ -149,10 +154,54 @@ def delete(id):
    
     return jsonify({'status':"True"}), 201
  
+@app.route(BASE_URL + '/reset', methods=['DELETE'])
+def reset():
+    try:
+        # Eliminar todos los registros de WallData
+        WallData.query.delete()
+        
+        # Eliminar todos los registros de DayTotal
+        DayTotal.query.delete()
+        
+        # Confirmar los cambios
+        db.session.commit()
+        
+        return jsonify({'status': "True", 'message': "All data has been reset"}), 200
+    except Exception as e:
+        db.session.rollback()  # Hacer rollback en caso de error
+        return jsonify({'status': "False", 'message': str(e)}), 500
+
  
- 
+def create_day_total():
+    # Esta función se ejecutará cada día a las 00:00
+    today = date.today()
+
+    # Revisa si ya hay un DayTotal creado hoy para evitar duplicados
+    existing_day_total = DayTotal.query.filter_by(created_at=today).first()
+    
+    if not existing_day_total:
+        # Crear un nuevo DayTotal con todos los valores inicializados a 0
+        new_day_total = DayTotal(grupo1=0, grupo2=0, grupo3=0, created_at=today)
+        
+        db.session.add(new_day_total)
+        db.session.commit()
+        print(f"Nuevo DayTotal creado para la fecha {today}")
+    else:
+        print(f"Ya existe un DayTotal para la fecha {today}")
+
+# Inicializar el scheduler
+def start_scheduler():
+    scheduler = BackgroundScheduler()
+    
+    # Programar la tarea para ejecutarse todos los días a las 00:00
+    scheduler.add_job(create_day_total, 'cron', hour=0, minute=0)
+    
+    scheduler.start()
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    print("Tables created...")
+        start_scheduler()  # Iniciar el scheduler
+    print("Tables created and scheduler started...")
     app.run(debug=False)
