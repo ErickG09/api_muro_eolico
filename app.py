@@ -88,7 +88,7 @@ class MonthTotal(db.Model):
 def index():
     return "Welcome to my ORM app toDoList!"
  
- 
+# ---POST----------------------------------------------------------------
 @app.route(BASE_URL + '/new', methods=['POST'])
 def create():
 
@@ -98,6 +98,8 @@ def create():
 
     month = date.strftime("%m")
     #today = date(2024, 9, 19)
+
+    # ---WallData----------------------------------------------------------------
     if not request.json or 'propeller1' not in request.json:
         abort(400)
     
@@ -120,6 +122,8 @@ def create():
     grupo3_sum = request.json['propeller4'] + request.json['propeller5']
     total_sum = grupo1_sum + grupo2_sum + grupo3_sum
     
+    # ---DayTotal----------------------------------------------------------------
+
     # Actualizar el total en DayTotal (suponiendo que solo tienes un registro en DayTotal)
     day_total = DayTotal.query.first()
     
@@ -144,7 +148,9 @@ def create():
     
     # Guardar los cambios en DayTotal
     db.session.commit()
-    
+
+    # ---MonthTotal----------------------------------------------------------------
+
     # Proceso de MonthTotal
     month_total = MonthTotal.query.filter_by(month=month).first()
     if not month_total:
@@ -160,13 +166,38 @@ def create():
 
     # Devolver la respuesta con los datos de WallData
     return jsonify(data.to_json()), 201
- 
+
+ # ---GET----------------------------------------------------------------
+
 @app.route(BASE_URL + '/readAll', methods=['GET'])
 def read():
     tasks = WallData.query.all()
     #print(tasks)
    
     return jsonify([task.to_json() for task in tasks])
+
+@app.route(BASE_URL + '/readLatest', methods=['GET'])
+def readLatest():
+    data = WallData.query.order_by(WallData.id.desc()).first()
+    #print(tasks)
+   
+    return jsonify(data.to_json())
+
+@app.route(BASE_URL + '/readCurrentDay', methods=['GET'])
+def readDay():
+    tasks = WallData.query.filter_by(created_at=datetime.now(mexico_tz).date()).all()
+
+    hours_and_total = {}
+
+    for task in tasks:
+        hour = task.hour
+        total = task.propeller1 + task.propeller2 + task.propeller3 + task.propeller4 + task.propeller5
+        if hour in hours_and_total:
+            hours_and_total[hour] += total
+        else:
+            hours_and_total[hour] = total
+
+    return jsonify(hours_and_total)
 
 @app.route(BASE_URL + '/readDayTotal', methods=['GET'])
 def readDayTotal():
@@ -182,18 +213,14 @@ def readLatestDayTotal():
     except:
         return jsonify({'status': "False", 'message': "There is no data"}), 404
     
-@app.route(BASE_URL + '/readLatest', methods=['GET'])
-def readLatest():
-    data = WallData.query.order_by(WallData.id.desc()).first()
-    #print(tasks)
-   
-    return jsonify(data.to_json())
 
 @app.route(BASE_URL + '/readMonthTotal', methods=['GET'])
 def readMonthTotal():
     tasks = MonthTotal.query.all()
 
     return jsonify([task.to_json() for task in tasks])
+
+# ---DELETE----------------------------------------------------------------
 
 @app.route(BASE_URL + '/reset', methods=['DELETE'])
 def reset():
