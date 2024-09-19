@@ -59,6 +59,7 @@ class DayTotal(db.Model):
     grupo2 = db.Column(db.Float, default=0)  # Sumatoria de propeller3
     grupo3 = db.Column(db.Float, default=0)  # Sumatoria de propeller4 y propeller5
     total = db.Column(db.Float, default=0)  # Sumatoria de todos los propellers
+    entries = db.Column(db.Integer, default=0)  # Número de registros en el día
     created_at = db.Column(db.Date, default=lambda: datetime.now(mexico_tz).date())  # Use Mexico City time
 
     def to_json(self):
@@ -68,18 +69,21 @@ class DayTotal(db.Model):
             'grupo2': self.grupo2,
             'grupo3': self.grupo3,
             'total': self.grupo1 + self.grupo2 + self.grupo3,
+            'entries': self.entries,
             'created_at': self.created_at.strftime('%Y-%m-%d')
         }
 # -----------------------------------------------------------------------
 class MonthTotal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     total = db.Column(db.Float, default=0)  # Sumatoria de todos los propellers
+    entries = db.Column(db.Integer, default=0)  # Número de registros en el mes
     month = db.Column(db.String(2), default=lambda: datetime.now(mexico_tz).strftime('%m'))  # Use Mexico City time
 
     def to_json(self):
         return {
             'id': self.id,
             'total': self.total,
+            'entries': self.entries,
             'month': self.month
         }
 
@@ -131,7 +135,7 @@ def create():
 
     if not day_total:
         # Si no existe un registro de DayTotal, lo creamos
-        day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, created_at=today)
+        day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
         db.session.add(day_total)
     
     elif str(day_total.created_at) == str(today):
@@ -140,26 +144,27 @@ def create():
         day_total.grupo2 += grupo2_sum
         day_total.grupo3 += grupo3_sum
         day_total.total += total_sum
+        day_total.entries += 1
 
     else:
         # Si el registro de DayTotal no es de hoy, lo creamos
-        day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total = total_sum, created_at=today)
+        day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
         db.session.add(day_total)
     
     # Guardar los cambios en DayTotal
     db.session.commit()
 
-    # ---MonthTotal----------------------------------------------------------------
-
+    # ---MonthTotal---------------------------------------------------------------
     # Proceso de MonthTotal
     month_total = MonthTotal.query.filter_by(month=month).first()
     if not month_total:
         # Si no existe un registro de MonthTotal, lo creamos
-        month_total = MonthTotal(total=total_sum, month=month)
+        month_total = MonthTotal(total=total_sum, entries=1, month=month)
         db.session.add(month_total)
     else:
         # Si ya existe, lo actualizamos sumando los valores a total
         month_total.total += total_sum
+        month_total.entries += 1
 
     # Guardar los cambios en MonthTotal
     db.session.commit()
