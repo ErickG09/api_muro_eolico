@@ -131,15 +131,14 @@ def create():
     # Actualizar el total en DayTotal (suponiendo que solo tienes un registro en DayTotal)
     day_total = DayTotal.query.order_by(DayTotal.id.desc()).first()
 
-    print(day_total.created_at)
-    print(today)
-    print(str(day_total.created_at) == str(today))
+    # print(day_total.created_at)
+    # print(today)
+    # print(str(day_total.created_at) == str(today))
 
     if not day_total:
         # Si no existe un registro de DayTotal, lo creamos
         day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
         db.session.add(day_total)
-        print("Caso 1")
     
     elif str(day_total.created_at) == str(today):
         # Si ya existe, lo actualizamos sumando los valores a cada grupo
@@ -148,14 +147,12 @@ def create():
         day_total.grupo3 += grupo3_sum
         day_total.total += total_sum
         day_total.entries += 1
-        print("Caso 2")
 
     else:
         # Si el registro de DayTotal no es de hoy, lo creamos
         day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
         db.session.add(day_total)
-        print("Caso 3")
-    
+
     # Guardar los cambios en DayTotal
     db.session.commit()
 
@@ -198,7 +195,6 @@ def readDay():
     tasks = WallData.query.filter_by(created_at=datetime.now(mexico_tz).date()).all()
 
     hours_and_total = {}
-    
     for task in tasks:
         hour = task.hour
         total = task.propeller1 + task.propeller2 + task.propeller3 + task.propeller4 + task.propeller5
