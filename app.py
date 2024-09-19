@@ -198,12 +198,10 @@ def readDay():
     tasks = WallData.query.filter_by(created_at=datetime.now(mexico_tz).date()).all()
 
     hours_and_total = {}
-    totalData = len(tasks)
-
+    
     for task in tasks:
         hour = task.hour
         total = task.propeller1 + task.propeller2 + task.propeller3 + task.propeller4 + task.propeller5
-        total = round((total / totalData) * 50, 2)
         if hour in hours_and_total:
             hours_and_total[hour] += total
         else:
