@@ -129,14 +129,17 @@ def create():
     # ---DayTotal----------------------------------------------------------------
 
     # Actualizar el total en DayTotal (suponiendo que solo tienes un registro en DayTotal)
-    day_total = DayTotal.query.first()
-    
-    #print(str(day_total.created_at) == str(today))
+    day_total = DayTotal.query.order_by(DayTotal.id.desc()).first()
+
+    print(day_total.created_at)
+    print(today)
+    print(str(day_total.created_at) == str(today))
 
     if not day_total:
         # Si no existe un registro de DayTotal, lo creamos
         day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
         db.session.add(day_total)
+        print("Caso 1")
     
     elif str(day_total.created_at) == str(today):
         # Si ya existe, lo actualizamos sumando los valores a cada grupo
@@ -145,11 +148,13 @@ def create():
         day_total.grupo3 += grupo3_sum
         day_total.total += total_sum
         day_total.entries += 1
+        print("Caso 2")
 
     else:
         # Si el registro de DayTotal no es de hoy, lo creamos
         day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
         db.session.add(day_total)
+        print("Caso 3")
     
     # Guardar los cambios en DayTotal
     db.session.commit()
@@ -248,6 +253,20 @@ def reset():
     except Exception as e:
         db.session.rollback()  # Hacer rollback en caso de error
         return jsonify({'status': "False", 'message': str(e)}), 50
+
+
+@app.route(BASE_URL + '/deleteDayTotalID', methods=['DELETE'])
+def deleteDayTotalID():
+    try:
+        # Eliminar un registro de DayTotal por su ID
+        DayTotal.query.filter_by(id=request.json['id']).delete()
+
+        # Confirmar los cambios
+        db.session.commit()
+        return jsonify({'status': "True", 'message': "DayTotal has been deleted"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': "False", 'message': str(e)}), 500
 
 if __name__ == '__main__':
     with app.app_context():
