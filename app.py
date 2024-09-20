@@ -98,10 +98,11 @@ def create():
 
 
     date = datetime.now(mexico_tz)
+        #date = date(2024, 9, 19)
     today = date.strftime("%Y-%m-%d")
 
     month = date.strftime("%m")
-    #today = date(2024, 9, 19)
+
 
     # ---WallData----------------------------------------------------------------
     if not request.json or 'propeller1' not in request.json:
