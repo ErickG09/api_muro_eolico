@@ -110,7 +110,13 @@ def create():
     
     # Crear el nuevo objeto WallData
 
-    if request.json['propeller1'] != 0 and request.json['propeller2'] != 0 and request.json['propeller3'] != 0 and request.json['propeller4'] != 0 and request.json['propeller5'] != 0:
+    if all(propeller > 0 for propeller in [
+        request.json['propeller1'], 
+        request.json['propeller2'], 
+        request.json['propeller3'], 
+        request.json['propeller4'], 
+        request.json['propeller5']
+    ]):
         data = WallData(
             propeller1=request.json['propeller1'], 
             propeller2=request.json['propeller2'], 
