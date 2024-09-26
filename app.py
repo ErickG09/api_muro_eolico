@@ -175,7 +175,9 @@ def create():
         db.session.commit()
 
     # Devolver la respuesta con los datos de WallData
-    return jsonify(data.to_json()), 201
+        return jsonify(data.to_json()), 201
+    else:
+        return jsonify({'status': "False", 'message': "There is no data"}), 404
 
  # ---GET----------------------------------------------------------------
 
