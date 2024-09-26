@@ -109,68 +109,70 @@ def create():
         abort(400)
     
     # Crear el nuevo objeto WallData
-    data = WallData(
-        propeller1=request.json['propeller1'], 
-        propeller2=request.json['propeller2'], 
-        propeller3=request.json['propeller3'], 
-        propeller4=request.json['propeller4'], 
-        propeller5=request.json['propeller5']
-    )
+
+    if request.json['propeller1'] != 0 and request.json['propeller2'] != 0 and request.json['propeller3'] != 0 and request.json['propeller4'] != 0 and request.json['propeller5'] != 0:
+        data = WallData(
+            propeller1=request.json['propeller1'], 
+            propeller2=request.json['propeller2'], 
+            propeller3=request.json['propeller3'], 
+            propeller4=request.json['propeller4'], 
+            propeller5=request.json['propeller5']
+        )
     
-    # Añadir a la sesión y guardar en la base de datos
-    db.session.add(data)
-    db.session.commit()
+        # Añadir a la sesión y guardar en la base de datos
+        db.session.add(data)
+        db.session.commit()
     
     # Calcular las sumatorias de los grupos
-    grupo1_sum = request.json['propeller1'] + request.json['propeller2']
-    grupo2_sum = request.json['propeller3']
-    grupo3_sum = request.json['propeller4'] + request.json['propeller5']
-    total_sum = grupo1_sum + grupo2_sum + grupo3_sum
-    
+        grupo1_sum = request.json['propeller1'] + request.json['propeller2']
+        grupo2_sum = request.json['propeller3']
+        grupo3_sum = request.json['propeller4'] + request.json['propeller5']
+        total_sum = grupo1_sum + grupo2_sum + grupo3_sum
+        
     # ---DayTotal----------------------------------------------------------------
 
-    # Actualizar el total en DayTotal (suponiendo que solo tienes un registro en DayTotal)
-    day_total = DayTotal.query.order_by(DayTotal.id.desc()).first()
+        # Actualizar el total en DayTotal (suponiendo que solo tienes un registro en DayTotal)
+        day_total = DayTotal.query.order_by(DayTotal.id.desc()).first()
 
-    # print(day_total.created_at)
-    # print(today)
-    # print(str(day_total.created_at) == str(today))
+        # print(day_total.created_at)
+        # print(today)
+        # print(str(day_total.created_at) == str(today))
 
-    if not day_total:
-        # Si no existe un registro de DayTotal, lo creamos
-        day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
-        db.session.add(day_total)
-    
-    elif str(day_total.created_at) == str(today):
-        # Si ya existe, lo actualizamos sumando los valores a cada grupo
-        day_total.grupo1 += grupo1_sum
-        day_total.grupo2 += grupo2_sum
-        day_total.grupo3 += grupo3_sum
-        day_total.total += total_sum
-        day_total.entries += 1
+        if not day_total:
+            # Si no existe un registro de DayTotal, lo creamos
+            day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
+            db.session.add(day_total)
+        
+        elif str(day_total.created_at) == str(today):
+            # Si ya existe, lo actualizamos sumando los valores a cada grupo
+            day_total.grupo1 += grupo1_sum
+            day_total.grupo2 += grupo2_sum
+            day_total.grupo3 += grupo3_sum
+            day_total.total += total_sum
+            day_total.entries += 1
 
-    else:
-        # Si el registro de DayTotal no es de hoy, lo creamos
-        day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
-        db.session.add(day_total)
+        else:
+            # Si el registro de DayTotal no es de hoy, lo creamos
+            day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
+            db.session.add(day_total)
 
-    # Guardar los cambios en DayTotal
-    db.session.commit()
+        # Guardar los cambios en DayTotal
+        db.session.commit()
 
-    # ---MonthTotal---------------------------------------------------------------
-    # Proceso de MonthTotal
-    month_total = MonthTotal.query.filter_by(month=month).first()
-    if not month_total:
-        # Si no existe un registro de MonthTotal, lo creamos
-        month_total = MonthTotal(total=total_sum, entries=1, month=month)
-        db.session.add(month_total)
-    else:
-        # Si ya existe, lo actualizamos sumando los valores a total
-        month_total.total += total_sum
-        month_total.entries += 1
+        # ---MonthTotal---------------------------------------------------------------
+        # Proceso de MonthTotal
+        month_total = MonthTotal.query.filter_by(month=month).first()
+        if not month_total:
+            # Si no existe un registro de MonthTotal, lo creamos
+            month_total = MonthTotal(total=total_sum, entries=1, month=month)
+            db.session.add(month_total)
+        else:
+            # Si ya existe, lo actualizamos sumando los valores a total
+            month_total.total += total_sum
+            month_total.entries += 1
 
-    # Guardar los cambios en MonthTotal
-    db.session.commit()
+        # Guardar los cambios en MonthTotal
+        db.session.commit()
 
     # Devolver la respuesta con los datos de WallData
     return jsonify(data.to_json()), 201
