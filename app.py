@@ -104,19 +104,13 @@ def create():
     month = date.strftime("%m")
 
 
-    # ---WallData----------------------------------------------------------------
+    # ---WallData---------------------------------------------------------------
     if not request.json or 'propeller1' not in request.json:
         abort(400)
     
     # Crear el nuevo objeto WallData
 
-    if all(propeller > 0 for propeller in [
-        request.json['propeller1'], 
-        request.json['propeller2'], 
-        request.json['propeller3'], 
-        request.json['propeller4'], 
-        request.json['propeller5']
-    ]):
+    if any(request.json[propeller] != 0 for propeller in ['propeller1', 'propeller2', 'propeller3', 'propeller4', 'propeller5']):
         data = WallData(
             propeller1=request.json['propeller1'], 
             propeller2=request.json['propeller2'], 
