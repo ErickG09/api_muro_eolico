@@ -29,6 +29,38 @@ mexico_tz = pytz.timezone('America/Mexico_City')
 # MODELOS
 # -----------------------------------------------------------------------
 
+class TempWallData(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    date = db.Column(db.DateTime, nullable=False)
+    propeller1 = db.Column(db.Float, nullable=False)
+    propeller2 = db.Column(db.Float, nullable=False)
+    propeller3 = db.Column(db.Float, nullable=False)
+    propeller4 = db.Column(db.Float, nullable=False)
+    propeller5 = db.Column(db.Float, nullable=False)
+
+    def __init__(self, date, propeller1, propeller2, propeller3, propeller4, propeller5):    
+        self.date = date
+        self.propeller1 = propeller1
+        self.propeller2 = propeller2
+        self.propeller3 = propeller3
+        self.propeller4 = propeller4
+        self.propeller5 = propeller5
+
+    def to_json(self):
+        return {
+            'id': self.id,  # Siempre es buena idea incluir el id también
+            'date': self.date.strftime('%Y-%m-%d %H:%M:%S'),
+            'propeller1': self.propeller1,
+            'propeller2': self.propeller2,
+            'propeller3': self.propeller3,
+            'propeller4': self.propeller4,
+            'propeller5': self.propeller5,
+        }
+
+    def __repr__(self):
+        return '<TempWallData %r>' % self.propeller1
+
+
 class WallData(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     date = db.Column(db.DateTime, nullable=False)
@@ -232,9 +264,17 @@ def create():
             propeller4=data['propeller4'],
             propeller5=data['propeller5']
         )
-
+        new_TempWall_data = TempWallData(
+            date=date_time,
+            propeller1=data['propeller1'],
+            propeller2=data['propeller2'],
+            propeller3=data['propeller3'],
+            propeller4=data['propeller4'],
+            propeller5=data['propeller5']
+        )
         # Guardar el objeto en la base de datos
         db.session.add(new_wall_data)
+        db.session.add(new_TempWall_data)
 
         # Actualizar el total del día
         sum_group1 = data['propeller1'] + data['propeller2'] 
@@ -254,6 +294,13 @@ def create():
 # ---GET----------------------------------------------------------------
 
 # GETs | WallData
+
+@app.route(BASE_URL + '/readTempLatest', methods=['GET'])
+def readTempLatest():
+    latest_data = TempWallData.query.order_by(TempWallData.id.desc()).first()
+    return jsonify(latest_data.to_json())
+
+# -----------------------------------------------------------------------
 
 @app.route(BASE_URL + '/readLatest', methods=['GET'])
 def readLatest():
@@ -445,6 +492,12 @@ def resetAll():
     db.session.query(TotalDay).delete()
     db.session.query(TotalMonth).delete()
     db.session.query(TotalAll).delete()
+    db.session.commit()
+    return jsonify({'message': 'All data has been deleted'})
+# -----------------------------------------------------------------------
+@app.route(BASE_URL + '/resetTempWallData', methods=['DELETE'])
+def resetTempWallData():
+    db.session.query(TempWallData).delete()
     db.session.commit()
     return jsonify({'message': 'All data has been deleted'})
 
