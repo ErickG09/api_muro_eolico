@@ -1,3 +1,8 @@
+#   Alfredo Barranco Ahued
+#   5 de octubre de 2024
+#   ORM para la base de datos de la Pared Eólica para ASE II
+#   Versión 2.0
+
 from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
@@ -5,8 +10,9 @@ from dotenv import load_dotenv
 import os
 from flask_cors import CORS
 from flask_migrate import Migrate
-from datetime import date
+from datetime import date, timedelta
 import pytz
+from sqlalchemy import cast, Date
 
 app = Flask(__name__)
 CORS(app)
@@ -18,18 +24,22 @@ migrate = Migrate(app, db)  # Inicializar Flask-Migrate
 BASE_URL = '/api/v1'
  
 mexico_tz = pytz.timezone('America/Mexico_City')
+
 # -----------------------------------------------------------------------
 # MODELOS
+# -----------------------------------------------------------------------
+
 class WallData(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    date = db.Column(db.DateTime, nullable=False)
     propeller1 = db.Column(db.Float, nullable=False)
     propeller2 = db.Column(db.Float, nullable=False)
     propeller3 = db.Column(db.Float, nullable=False)
     propeller4 = db.Column(db.Float, nullable=False)
     propeller5 = db.Column(db.Float, nullable=False)
-    created_at = db.Column(db.Date, default=lambda: datetime.now(mexico_tz).date())
-    hour = db.Column(db.String(2), default=lambda: datetime.now(mexico_tz).strftime('%H'))  # Use Mexico City time
-    def __init__(self, propeller1, propeller2, propeller3, propeller4, propeller5):    
+
+    def __init__(self, date, propeller1, propeller2, propeller3, propeller4, propeller5):    
+        self.date = date
         self.propeller1 = propeller1
         self.propeller2 = propeller2
         self.propeller3 = propeller3
@@ -39,236 +49,397 @@ class WallData(db.Model):
     def to_json(self):
         return {
             'id': self.id,  # Siempre es buena idea incluir el id también
+            'date': self.date.strftime('%Y-%m-%d %H:%M:%S'),
             'propeller1': self.propeller1,
             'propeller2': self.propeller2,
             'propeller3': self.propeller3,
             'propeller4': self.propeller4,
             'propeller5': self.propeller5,
-            'created_at': self.created_at.strftime('%Y-%m-%d'),  # Incluir created_at
-            'hour': self.hour  # Incluir la hora
-            
         }
 
     def __repr__(self):
         return '<WallData %r>' % self.propeller1
 
- # -----------------------------------------------------------------------
-class DayTotal(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    grupo1 = db.Column(db.Float, default=0)  # Sumatoria de propeller1 y propeller2
-    grupo2 = db.Column(db.Float, default=0)  # Sumatoria de propeller3
-    grupo3 = db.Column(db.Float, default=0)  # Sumatoria de propeller4 y propeller5
-    total = db.Column(db.Float, default=0)  # Sumatoria de todos los propellers
-    entries = db.Column(db.Integer, default=0)  # Número de registros en el día
-    created_at = db.Column(db.Date, default=lambda: datetime.now(mexico_tz).date())  # Use Mexico City time
-
-    def to_json(self):
-        return {
-            'id': self.id,
-            'grupo1': self.grupo1,
-            'grupo2': self.grupo2,
-            'grupo3': self.grupo3,
-            'total': self.grupo1 + self.grupo2 + self.grupo3,
-            'entries': self.entries,
-            'created_at': self.created_at.strftime('%Y-%m-%d')
-        }
 # -----------------------------------------------------------------------
-class MonthTotal(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    total = db.Column(db.Float, default=0)  # Sumatoria de todos los propellers
-    entries = db.Column(db.Integer, default=0)  # Número de registros en el mes
-    month = db.Column(db.String(2), default=lambda: datetime.now(mexico_tz).strftime('%m'))  # Use Mexico City time
+class TotalDay(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    date = db.Column(db.Date, nullable=False)
+    total = db.Column(db.Float, nullable=False)
+    group1 = db.Column(db.Float, nullable=False)
+    group2 = db.Column(db.Float, nullable=False)
+    group3 = db.Column(db.Float, nullable=False)
+
+    def __init__(self, date, total, group1, group2, group3):
+        self.date = date
+        self.total = total
+        self.group1 = group1
+        self.group2 = group2
+        self.group3 = group3
 
     def to_json(self):
         return {
             'id': self.id,
+            'date': self.date.strftime('%Y-%m-%d'),
             'total': self.total,
-            'entries': self.entries,
-            'month': self.month
+            'group1': self.group1,
+            'group2': self.group2,
+            'group3': self.group3
         }
 
-# --- MAIN --------------------------------------------------------------------
+    def __repr__(self):
+        return '<TotalDay %r>' % self.total
+
+# -----------------------------------------------------------------------
+class TotalMonth(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    date = db.Column(db.Date, nullable=False)
+    total = db.Column(db.Float, nullable=False)
+
+    def __init__(self, date, total):
+        self.date = date
+        self.total = total
+
+    def to_json(self):
+        return {
+            'id': self.id,
+            'date': self.date.strftime('%Y-%m'),
+            'total': self.total
+        }
+
+    def __repr__(self):
+        return '<TotalMonth %r>' % self.total
+# -----------------------------------------------------------------------
+class TotalAll(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    total = db.Column(db.Float, nullable=False)
+
+    def __init__(self, total):
+        self.total = total
+
+    def to_json(self):
+        return {
+            'id': self.id,
+            'total': self.total
+        }
+
+    def __repr__(self):
+        return '<TotalAll %r>' % self.total
+
+# -----------------------------------------------------------------------
+# INICIO DE | FUNCIONES
+# -----------------------------------------------------------------------
+
+def update_total_day(today, total_sum, sum_group1, sum_group2, sum_group3):
+
+    today_object = TotalDay.query.filter_by(date=today).first()
+
+    # Si no existe un objeto con la fecha de hoy, crear uno nuevo
+    if today_object is None:
+        new_total_day = TotalDay(date=today, total=total_sum, group1=sum_group1, group2=sum_group2, group3=sum_group3)
+        db.session.add(new_total_day)
+        db.session.commit()
+    
+    # Si ya existe un objeto con la fecha de hoy, actualizarlo
+    else:
+        today_object.total += total_sum
+        today_object.group1 += sum_group1
+        today_object.group2 += sum_group2
+        today_object.group3 += sum_group3
+        db.session.commit()
+# -----------------------------------------------------------------------
+def update_total_month(month, total_sum):
+    # Ensure month is a datetime object and convert to Mexico City timezone
+    if isinstance(month, str):
+        month = datetime.strptime(month, '%Y-%m')
+    month = month.astimezone(mexico_tz)
+
+    # Use the first day of the month for the query
+    month_start = month.replace(day=1).date()
+
+    month_object = TotalMonth.query.filter_by(date=month_start).first()
+
+    # If no object exists with the given date, create a new one
+    if month_object is None:
+        new_total_month = TotalMonth(date=month_start, total=total_sum)
+        db.session.add(new_total_month)
+        db.session.commit()
+    
+    # If an object already exists with the given date, update it
+    else:
+        month_object.total += total_sum
+        db.session.commit()
+
+# -----------------------------------------------------------------------
+def update_total_all(total_sum):
+
+    total_object = TotalAll.query.first()
+
+    # Si no existe un objeto crear uno nuevo
+    # Esto solo debería pasar la primera vez que se corre el programa
+    if total_object is None:
+        new_total_all = TotalAll(total=total_sum)
+        db.session.add(new_total_all)
+        db.session.commit()
+    
+    # Si ya existe un objeto con la fecha de hoy, actualizarlo
+    else:
+        total_object.total += total_sum
+        db.session.commit()
+
+# -----------------------------------------------------------------------
+# FIN DE | FUNCIONES
+# -----------------------------------------------------------------------
+
+# --- MAIN -------------------------------------------------------------
 @app.route('/')
 def index():
-    return "Welcome to my ORM app toDoList!"
+    return "Welcome to my ORM app!"
  
-# ---POST----------------------------------------------------------------
+# ---POST---------------------------------------------------------------
+
 @app.route(BASE_URL + '/new', methods=['POST'])
 def create():
 
+    # Definir la fecha de hoy
+    date = datetime.now(mexico_tz) # Fecha que irá en WallData
 
-    date = datetime.now(mexico_tz)
-        #date = date(2024, 9, 19)
-    today = date.strftime("%Y-%m-%d")
+    date_time = date.strftime('%Y-%m-%d %H:%M:%S') # Fecha que irá en WallData
+    today = date.strftime('%Y-%m-%d') # Fecha que irá en TotalDay
+    month = date.strftime('%Y-%m') # Fecha que irá en TotalMonth
 
-    month = date.strftime("%m")
+    print(date)
+    # Obtener los datos del request
+    data = request.get_json()
 
-
-    # ---WallData---------------------------------------------------------------
     if not request.json or 'propeller1' not in request.json:
         abort(400)
-    
-    # Crear el nuevo objeto WallData
 
-    if any(request.json[propeller] != 0 for propeller in ['propeller1', 'propeller2', 'propeller3', 'propeller4', 'propeller5']):
-        data = WallData(
-            propeller1=request.json['propeller1'], 
-            propeller2=request.json['propeller2'], 
-            propeller3=request.json['propeller3'], 
-            propeller4=request.json['propeller4'], 
-            propeller5=request.json['propeller5']
-        )
-    
-        # Añadir a la sesión y guardar en la base de datos
-        db.session.add(data)
-        db.session.commit()
-    
-    # Calcular las sumatorias de los grupos
-        grupo1_sum = request.json['propeller1'] + request.json['propeller2']
-        grupo2_sum = request.json['propeller3']
-        grupo3_sum = request.json['propeller4'] + request.json['propeller5']
-        total_sum = grupo1_sum + grupo2_sum + grupo3_sum
-        
-    # ---DayTotal----------------------------------------------------------------
-
-        # Actualizar el total en DayTotal (suponiendo que solo tienes un registro en DayTotal)
-        day_total = DayTotal.query.order_by(DayTotal.id.desc()).first()
-
-        # print(day_total.created_at)
-        # print(today)
-        # print(str(day_total.created_at) == str(today))
-
-        if not day_total:
-            # Si no existe un registro de DayTotal, lo creamos
-            day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
-            db.session.add(day_total)
-        
-        elif str(day_total.created_at) == str(today):
-            # Si ya existe, lo actualizamos sumando los valores a cada grupo
-            day_total.grupo1 += grupo1_sum
-            day_total.grupo2 += grupo2_sum
-            day_total.grupo3 += grupo3_sum
-            day_total.total += total_sum
-            day_total.entries += 1
-
-        else:
-            # Si el registro de DayTotal no es de hoy, lo creamos
-            day_total = DayTotal(grupo1=grupo1_sum, grupo2=grupo2_sum, grupo3=grupo3_sum, total=total_sum, entries=1, created_at=today)
-            db.session.add(day_total)
-
-        # Guardar los cambios en DayTotal
-        db.session.commit()
-
-        # ---MonthTotal---------------------------------------------------------------
-        # Proceso de MonthTotal
-        month_total = MonthTotal.query.filter_by(month=month).first()
-        if not month_total:
-            # Si no existe un registro de MonthTotal, lo creamos
-            month_total = MonthTotal(total=total_sum, entries=1, month=month)
-            db.session.add(month_total)
-        else:
-            # Si ya existe, lo actualizamos sumando los valores a total
-            month_total.total += total_sum
-            month_total.entries += 1
-
-        # Guardar los cambios en MonthTotal
-        db.session.commit()
-
-    # Devolver la respuesta con los datos de WallData
-        return jsonify(data.to_json()), 201
     else:
-        return jsonify({'status': "False", 'message': "There is no data"}), 404
 
- # ---GET----------------------------------------------------------------
+        # Sacar el total generado para actualizar los demás
+        total_sum = data['propeller1'] + data['propeller2'] + data['propeller3'] + data['propeller4'] + data['propeller5']
+
+        # Crear un nuevo objeto WallData
+        new_wall_data = WallData(
+            date=date_time,
+            propeller1=data['propeller1'],
+            propeller2=data['propeller2'],
+            propeller3=data['propeller3'],
+            propeller4=data['propeller4'],
+            propeller5=data['propeller5']
+        )
+
+        # Guardar el objeto en la base de datos
+        db.session.add(new_wall_data)
+
+        # Actualizar el total del día
+        sum_group1 = data['propeller1'] + data['propeller2'] 
+        sum_group2 = data['propeller3']
+        sum_group3 = data['propeller4'] + data['propeller5']
+
+        update_total_day(today, total_sum, sum_group1, sum_group2, sum_group3)
+
+        # Actualizar el total del mes
+        update_total_month(month, total_sum)
+
+        # Actualizar el total general
+        update_total_all(total_sum)
+
+        return jsonify(new_wall_data.to_json())
+
+# ---GET----------------------------------------------------------------
+
+# GETs | WallData
 
 @app.route(BASE_URL + '/readAll', methods=['GET'])
-def read():
-    tasks = WallData.query.all()
-    #print(tasks)
-   
-    return jsonify([task.to_json() for task in tasks])
+def readAll():
+    all_data = WallData.query.all()
+    return jsonify([data.to_json() for data in all_data])
+# -----------------------------------------------------------------------
+@app.route(BASE_URL + '/getAllHours', methods=['GET'])
+def get_all_hours():
 
-@app.route(BASE_URL + '/readLatest', methods=['GET'])
-def readLatest():
-    data = WallData.query.order_by(WallData.id.desc()).first()
-    #print(tasks)
-   
-    return jsonify(data.to_json())
+    today = datetime.now(mexico_tz).date()
+    all_data = WallData.query.filter(cast(WallData.date, Date) == today).all()
 
-@app.route(BASE_URL + '/readCurrentDay', methods=['GET'])
-def readDay():
-    tasks = WallData.query.filter_by(created_at=datetime.now(mexico_tz).date()).all()
+    hourly_totals = {hour: 0 for hour in range(1, 25)}
 
-    hours_and_total = {}
-    for task in tasks:
-        hour = task.hour
-        total = task.propeller1 + task.propeller2 + task.propeller3 + task.propeller4 + task.propeller5
-        if hour in hours_and_total:
-            hours_and_total[hour] += total
-        else:
-            hours_and_total[hour] = total
+    for data in all_data:
+        hour = data.date.hour 
+        total = ((data.propeller1 * 10 * 10**-3) + (data.propeller2 * 10 * 10**-3) + (data.propeller3 * 10 * 10**-3) + (data.propeller4 * 10 * 10**-3) + (data.propeller5 * 10 * 10**-3))
+        hourly_totals[hour] += total
 
-    return jsonify(hours_and_total)
+    return jsonify(hourly_totals)
 
-@app.route(BASE_URL + '/readDayTotal', methods=['GET'])
-def readDayTotal():
-    tasks = DayTotal.query.all()
+# -----------------------------------------------------------------------
+@app.route(BASE_URL + '/getAllMinutes', methods=['GET'])
+def get_all_minutes():
 
-    return jsonify([task.to_json() for task in tasks])
-
-@app.route(BASE_URL + '/readLatestDayTotal', methods=['GET'])
-def readLatestDayTotal():
-    data = DayTotal.query.order_by(DayTotal.id.desc()).first()
-    try:
-        return jsonify(data.to_json())
-    except:
-        return jsonify({'status': "False", 'message': "There is no data"}), 404
+    now = datetime.now(mexico_tz)
+    current_hour = now.hour
+    today = now.date()
     
+    all_data = WallData.query.filter(cast(WallData.date, Date) == today).all()
 
-@app.route(BASE_URL + '/readMonthTotal', methods=['GET'])
-def readMonthTotal():
-    tasks = MonthTotal.query.all()
+    minute_totals = {minute: 0 for minute in range(60)}
 
-    return jsonify([task.to_json() for task in tasks])
+    for data in all_data:
+        if data.date.hour == current_hour:
+            minute = data.date.minute
+            total = ((data.propeller1 * 10 * 10**-3) + (data.propeller2 * 10 * 10**-3) + (data.propeller3 * 10 * 10**-3) + (data.propeller4 * 10 * 10**-3) + (data.propeller5 * 10 * 10**-3))
+            minute_totals[minute] += total
 
-# ---DELETE----------------------------------------------------------------
+    return jsonify(minute_totals)
+# -----------------------------------------------------------------------
+@app.route(BASE_URL + '/getHourByNumber/<number>', methods=['GET'])
+def get_hour_by_number(number):
 
-@app.route(BASE_URL + '/reset', methods=['DELETE'])
-def reset():
-    try:
-        # Eliminar todos los registros de WallData
-        WallData.query.delete()
-        
-        # Eliminar todos los registros de DayTotal
-        DayTotal.query.delete()
-        
-        # Eliminar todos los registros de MonthTotal
-        MonthTotal.query.delete()
+    today = datetime.now(mexico_tz).date()
+    all_data = WallData.query.filter(cast(WallData.date, Date) == today).all()
 
-        # Confirmar los cambios
-        db.session.commit()
-        
-        return jsonify({'status': "True", 'message': "All data has been reset"}), 200
-    except Exception as e:
-        db.session.rollback()  # Hacer rollback en caso de error
-        return jsonify({'status': "False", 'message': str(e)}), 50
+    total = 0
+
+    for data in all_data:
+        if data.date.hour == int(number):
+            total += data.propeller1 + data.propeller2 + data.propeller3 + data.propeller4 + data.propeller5
+
+    return jsonify({'hour': number, 'total': total})
+
+#- Fin de GET para WallData-----------------------------------------------
+
+# GETs | TotalDay -------------------------------------------------------
+
+@app.route(BASE_URL + '/readAllDays', methods=['GET'])
+def readAllDays():
+    all_data = TotalDay.query.all()
+    return jsonify([data.to_json() for data in all_data])
+
+# -----------------------------------------------------------------------
+
+@app.route(BASE_URL + '/getCurrentDay', methods=['GET'])
+def get_current_day():
+    today = datetime.now(mexico_tz).date()
+    today_object = TotalDay.query.filter_by(date=today).first()
 
 
-@app.route(BASE_URL + '/deleteDayTotalID', methods=['DELETE'])
-def deleteDayTotalID():
-    try:
-        # Eliminar un registro de DayTotal por su ID
-        DayTotal.query.filter_by(id=request.json['id']).delete()
 
-        # Confirmar los cambios
-        db.session.commit()
-        return jsonify({'status': "True", 'message': "DayTotal has been deleted"}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'status': "False", 'message': str(e)}), 500
+    if today_object is None:
+        return jsonify({'total': 0})
+    else:
+        return jsonify(today_object.to_json())
+
+# -----------------------------------------------------------------------
+@app.route(BASE_URL + '/read30days', methods=['GET'])
+def read30days():
+
+    # Hacer un diccionario del 1 al 30 que tenga el total de cada día
+    today = datetime.now(mexico_tz).date()
+    thirty_days_ago = today - timedelta(days=30)
+    all_data = TotalDay.query.filter(TotalDay.date >= thirty_days_ago, TotalDay.date <= today).all()
+
+    # Crear un diccionario con los últimos 30 días, inicializando en 0
+    day_totals = { (thirty_days_ago + timedelta(days=i)).strftime('%d'): 0 for i in range(31) }
+
+    # Actualizar el diccionario con los valores reales
+    for day in all_data:
+        day_totals[day.date.strftime('%d')] = day.total
+
+    return jsonify(day_totals)
+# -----------------------------------------------------------------------
+
+@app.route(BASE_URL + '/getWeek', methods=['GET'])
+def get_week():
+    today = datetime.now(mexico_tz).date()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+
+    week_data = TotalDay.query.filter(TotalDay.date >= week_start, TotalDay.date <= week_end).all()
+
+    week_totals = {day.date.strftime('%A, %Y-%m-%d'): (day.total * 10 * 10**-3) for day in week_data}
+    total_week = sum(day.total for day in week_data)
+
+    return jsonify({'week_totals': week_totals, 'total_week': total_week})
+
+# -----------------------------------------------------------------------
+
+@app.route(BASE_URL + '/getDayByNumber/<number>', methods=['GET'])
+def get_day_by_number(number):
+
+    today = datetime.now(mexico_tz).date()
+    all_data = TotalDay.query.all()
+
+    total = 0
+
+    for data in all_data:
+        if data.date.day == int(number):
+            total += data.total
+
+    return jsonify({'day': number, 'total': total})
+
+#- Fin de GET para TotalDay -----------------------------------------------
+
+# GETs | TotalMonth -----------------------------------------------------
+
+@app.route(BASE_URL + '/getCurrentMonth', methods=['GET'])
+def get_current_month():
+    today = datetime.now(mexico_tz).date()
+    month_start = today.replace(day=1)
+    month_object = TotalMonth.query.filter_by(date=month_start).first()
+
+    if month_object is None:
+        return jsonify({'total': 0})
+    else:
+        return jsonify(month_object.to_json())
+    
+# -----------------------------------------------------------------------
+@app.route(BASE_URL + '/readAllMonths', methods=['GET'])
+def readAllMonths():
+    all_data = TotalMonth.query.all()
+
+    #Crear un diccionario de meses del 1 al 12 que tenga el total de cada mes
+    month_totals = {month: 0 for month in range(1, 13)}
+
+    for data in all_data:
+        month = data.date.month
+        month_totals[month] += data.total
+
+    return jsonify(month_totals)
+
+#- Fin de GET para TotalMonth --------------------------------------------
+
+# GETs | TotalAll -------------------------------------------------------
+@app.route(BASE_URL + '/getTotal', methods=['GET'])
+def get_total():
+    total_object = TotalAll.query.first()
+
+    if total_object is None:
+        return jsonify({'total': 0})
+    else:
+        return jsonify(total_object.to_json())
+
+# -----------------------------------------------------------------------
+
+
+
+
+
+# ---DELETE-------------------------------------------------------------
+@app.route(BASE_URL + '/resetAll', methods=['DELETE'])
+def resetAll():
+    db.session.query(WallData).delete()
+    db.session.query(TotalDay).delete()
+    db.session.query(TotalMonth).delete()
+    db.session.query(TotalAll).delete()
+    db.session.commit()
+    return jsonify({'message': 'All data has been deleted'})
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     print("Tables created")
     app.run(debug=False)
+
+# -----------------------------------------------------------------------
+# FIN DE | METODOS HTTP
+# -----------------------------------------------------------------------
+
