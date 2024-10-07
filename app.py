@@ -151,13 +151,17 @@ def update_total_month(month, total_sum):
     # Ensure month is a datetime object and convert to Mexico City timezone
     if isinstance(month, str):
         month = datetime.strptime(month, '%Y-%m')
-    month = month.astimezone(mexico_tz)
+    month = mexico_tz.localize(month)
 
     # Use the first day of the month for the query
     month_start = month.replace(day=1).date()
 
     month_object = TotalMonth.query.filter_by(date=month_start).first()
 
+
+    print(month_start)
+
+    print(month_object)
     # If no object exists with the given date, create a new one
     if month_object is None:
         new_total_month = TotalMonth(date=month_start, total=total_sum)
@@ -404,6 +408,12 @@ def readAllMonths():
         month_totals[month] += data.total
 
     return jsonify(month_totals)
+
+# -----------------------------------------------------------------------
+@app.route(BASE_URL + '/getMonthsObjects', methods=['GET'])
+def get_months_objects():
+    all_data = TotalMonth.query.all()
+    return jsonify([data.to_json() for data in all_data])
 
 #- Fin de GET para TotalMonth --------------------------------------------
 
