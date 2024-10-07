@@ -255,6 +255,11 @@ def create():
 
 # GETs | WallData
 
+@app.route(BASE_URL + '/readLatest', methods=['GET'])
+def readLatest():
+    latest_data = WallData.query.order_by(WallData.id.desc()).first()
+    return jsonify(latest_data.to_json())
+# -----------------------------------------------------------------------
 @app.route(BASE_URL + '/readAll', methods=['GET'])
 def readAll():
     all_data = WallData.query.all()
