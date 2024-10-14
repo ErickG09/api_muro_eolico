@@ -314,14 +314,21 @@ def readAll():
 # -----------------------------------------------------------------------
 @app.route(BASE_URL + '/getAllHours', methods=['GET'])
 def get_all_hours():
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({'error': 'Date parameter is required'}), 400
 
-    today = datetime.now(mexico_tz).date()
-    all_data = WallData.query.filter(cast(WallData.date, Date) == today).all()
+    try:
+        date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
 
-    hourly_totals = {hour: 0 for hour in range(1, 25)}
+    all_data = WallData.query.filter(cast(WallData.date, Date) == date).all()
+
+    hourly_totals = {hour: 0 for hour in range(24)}
 
     for data in all_data:
-        hour = data.date.hour 
+        hour = data.date.hour
         total = ((data.propeller1 * 10 * 10**-3) + (data.propeller2 * 10 * 10**-3) + (data.propeller3 * 10 * 10**-3) + (data.propeller4 * 10 * 10**-3) + (data.propeller5 * 10 * 10**-3))
         hourly_totals[hour] += total
 
@@ -330,20 +337,23 @@ def get_all_hours():
 # -----------------------------------------------------------------------
 @app.route(BASE_URL + '/getAllMinutes', methods=['GET'])
 def get_all_minutes():
+    date_str = request.args.get('date')
+    if not date_str:
+        return jsonify({'error': 'Date parameter is required'}), 400
 
-    now = datetime.now(mexico_tz)
-    current_hour = now.hour
-    today = now.date()
-    
-    all_data = WallData.query.filter(cast(WallData.date, Date) == today).all()
+    try:
+        date = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD HH:MM:SS'}), 400
+
+    all_data = WallData.query.filter(WallData.date >= date, WallData.date < date + timedelta(hours=1)).all()
 
     minute_totals = {minute: 0 for minute in range(60)}
 
     for data in all_data:
-        if data.date.hour == current_hour:
-            minute = data.date.minute
-            total = ((data.propeller1 * 10 * 10**-3) + (data.propeller2 * 10 * 10**-3) + (data.propeller3 * 10 * 10**-3) + (data.propeller4 * 10 * 10**-3) + (data.propeller5 * 10 * 10**-3))
-            minute_totals[minute] += total
+        minute = data.date.minute
+        total = ((data.propeller1 * 10 * 10**-3) + (data.propeller2 * 10 * 10**-3) + (data.propeller3 * 10 * 10**-3) + (data.propeller4 * 10 * 10**-3) + (data.propeller5 * 10 * 10**-3))
+        minute_totals[minute] += total
 
     return jsonify(minute_totals)
 # -----------------------------------------------------------------------
