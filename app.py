@@ -316,12 +316,12 @@ def readAll():
 def get_all_hours():
     date_str = request.args.get('date')
     if not date_str:
-        return jsonify({'error': 'Date parameter is required'}), 400
-
-    try:
-        date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        date = datetime.now(mexico_tz).date()
+    else:
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
 
     all_data = WallData.query.filter(cast(WallData.date, Date) == date).all()
 
