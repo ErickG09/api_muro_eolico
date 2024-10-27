@@ -346,14 +346,31 @@ def get_all_minutes():
     except ValueError:
         return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD HH:MM:SS'}), 400
 
-    all_data = WallData.query.filter(WallData.date >= date, WallData.date < date + timedelta(hours=1)).all()
 
-    minute_totals = {minute: 0 for minute in range(60)}
+    all_data = WallData.query.filter(
+        WallData.date >= date.replace(minute=0, second=0, microsecond=0),
+        WallData.date < date.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    ).all()
+    
+    print(all_data)
+    minute_totals = {minute: {
+        'propeller1': 0,
+        'propeller2': 0,
+        'propeller3': 0,
+        'propeller4': 0,
+        'propeller5': 0,
+        'total': 0
+    } for minute in range(60)}
 
+    print(all_data)
     for data in all_data:
         minute = data.date.minute
-        total = ((data.propeller1 * 10 * 10**-3) + (data.propeller2 * 10 * 10**-3) + (data.propeller3 * 10 * 10**-3) + (data.propeller4 * 10 * 10**-3) + (data.propeller5 * 10 * 10**-3))
-        minute_totals[minute] += total
+        minute_totals[minute]['propeller1'] += data.propeller1 * 10 * 10**-3
+        minute_totals[minute]['propeller2'] += data.propeller2 * 10 * 10**-3
+        minute_totals[minute]['propeller3'] += data.propeller3 * 10 * 10**-3
+        minute_totals[minute]['propeller4'] += data.propeller4 * 10 * 10**-3
+        minute_totals[minute]['propeller5'] += data.propeller5 * 10 * 10**-3
+        minute_totals[minute]['total'] += ((data.propeller1 * 10 * 10**-3) + (data.propeller2 * 10 * 10**-3) + (data.propeller3 * 10 * 10**-3) + (data.propeller4 * 10 * 10**-3) + (data.propeller5 * 10 * 10**-3))
 
     return jsonify(minute_totals)
 # -----------------------------------------------------------------------
