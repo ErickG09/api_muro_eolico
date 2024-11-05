@@ -272,24 +272,28 @@ def create():
             propeller4=data['propeller4'],
             propeller5=data['propeller5']
         )
-        # Guardar el objeto en la base de datos
-        db.session.add(new_wall_data)
-        db.session.add(new_TempWall_data)
 
-        # Actualizar el total del día
-        sum_group1 = data['propeller1'] + data['propeller2'] 
-        sum_group2 = data['propeller3']
-        sum_group3 = data['propeller4'] + data['propeller5']
+        if total_sum >= 0.2:
+            # Guardar el objeto en la base de datos
+            db.session.add(new_wall_data)
+            db.session.add(new_TempWall_data)
 
-        update_total_day(today, total_sum, sum_group1, sum_group2, sum_group3)
+            # Actualizar el total del día
+            sum_group1 = data['propeller1'] + data['propeller2'] 
+            sum_group2 = data['propeller3']
+            sum_group3 = data['propeller4'] + data['propeller5']
 
-        # Actualizar el total del mes
-        update_total_month(month, total_sum)
+            update_total_day(today, total_sum, sum_group1, sum_group2, sum_group3)
 
-        # Actualizar el total general
-        update_total_all(total_sum)
+            # Actualizar el total del mes
+            update_total_month(month, total_sum)
 
-        return jsonify(new_wall_data.to_json())
+            # Actualizar el total general
+            update_total_all(total_sum)
+
+            return jsonify(new_wall_data.to_json())
+        else:
+            return jsonify({'message': 'Data not saved. Total sum is less than 0.2'})
 
 # ---GET----------------------------------------------------------------
 
@@ -527,6 +531,13 @@ def resetTempWallData():
     db.session.query(TempWallData).delete()
     db.session.commit()
     return jsonify({'message': 'All data has been deleted'})
+# -----------------------------------------------------------------------
+@app.route(BASE_URL + '/deleteAllZeros', methods=['DELETE'])
+def deleteAllZeros():
+    db.session.query(WallData).filter(WallData.propeller1 == 0, WallData.propeller2 == 0, WallData.propeller3 == 0, WallData.propeller4 == 0, WallData.propeller5 == 0).delete()
+    db.session.commit()
+    return jsonify({'message': 'All zeros have been deleted'})
+
 
 if __name__ == '__main__':
     with app.app_context():
