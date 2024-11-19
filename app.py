@@ -32,14 +32,16 @@ mexico_tz = pytz.timezone('America/Mexico_City')
 class TempWallData(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     date = db.Column(db.DateTime, nullable=False)
+    group = db.Column(db.Integer, nullable=False)
     propeller1 = db.Column(db.Float, nullable=False)
     propeller2 = db.Column(db.Float, nullable=False)
     propeller3 = db.Column(db.Float, nullable=False)
     propeller4 = db.Column(db.Float, nullable=False)
     propeller5 = db.Column(db.Float, nullable=False)
 
-    def __init__(self, date, propeller1, propeller2, propeller3, propeller4, propeller5):    
+    def __init__(self, date, group, propeller1, propeller2, propeller3, propeller4, propeller5):    
         self.date = date
+        self.group = group
         self.propeller1 = propeller1
         self.propeller2 = propeller2
         self.propeller3 = propeller3
@@ -50,6 +52,7 @@ class TempWallData(db.Model):
         return {
             'id': self.id,  # Siempre es buena idea incluir el id también
             'date': self.date.strftime('%Y-%m-%d %H:%M:%S'),
+            'group': self.group,
             'propeller1': self.propeller1,
             'propeller2': self.propeller2,
             'propeller3': self.propeller3,
@@ -64,14 +67,16 @@ class TempWallData(db.Model):
 class WallData(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     date = db.Column(db.DateTime, nullable=False)
+    group = db.Column(db.Integer, nullable=False)
     propeller1 = db.Column(db.Float, nullable=False)
     propeller2 = db.Column(db.Float, nullable=False)
     propeller3 = db.Column(db.Float, nullable=False)
     propeller4 = db.Column(db.Float, nullable=False)
     propeller5 = db.Column(db.Float, nullable=False)
 
-    def __init__(self, date, propeller1, propeller2, propeller3, propeller4, propeller5):    
+    def __init__(self, date, group, propeller1, propeller2, propeller3, propeller4, propeller5):    
         self.date = date
+        self.group = group
         self.propeller1 = propeller1
         self.propeller2 = propeller2
         self.propeller3 = propeller3
@@ -82,6 +87,7 @@ class WallData(db.Model):
         return {
             'id': self.id,  # Siempre es buena idea incluir el id también
             'date': self.date.strftime('%Y-%m-%d %H:%M:%S'),
+            'group': self.group,
             'propeller1': self.propeller1,
             'propeller2': self.propeller2,
             'propeller3': self.propeller3,
@@ -258,6 +264,7 @@ def create():
         # Crear un nuevo objeto WallData
         new_wall_data = WallData(
             date=date_time,
+            group=data['group'],
             propeller1=data['propeller1'],
             propeller2=data['propeller2'],
             propeller3=data['propeller3'],
@@ -266,6 +273,7 @@ def create():
         )
         new_TempWall_data = TempWallData(
             date=date_time,
+            group=data['group'],
             propeller1=data['propeller1'],
             propeller2=data['propeller2'],
             propeller3=data['propeller3'],
@@ -299,9 +307,9 @@ def create():
 
 # GETs | WallData
 
-@app.route(BASE_URL + '/readTempLatest', methods=['GET'])
-def readTempLatest():
-    latest_data = TempWallData.query.order_by(TempWallData.id.desc()).first()
+@app.route(BASE_URL + '/readTempLatest/<number>', methods=['GET'])
+def readTempLatest(number):
+    latest_data = TempWallData.query.filter_by(group=number).order_by(TempWallData.id.desc()).first()
     return jsonify(latest_data.to_json())
 
 # -----------------------------------------------------------------------
