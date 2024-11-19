@@ -341,7 +341,7 @@ def get_all_hours():
 
     for data in all_data:
         hour = data.date.hour
-        total = ((data.propeller1 * 10 * 10**-3) + (data.propeller2 * 10 * 10**-3) + (data.propeller3 * 10 * 10**-3) + (data.propeller4 * 10 * 10**-3) + (data.propeller5 * 10 * 10**-3))
+        total = ((data.propeller1 ** 2/216 * 1000) + (data.propeller2 ** 2/216 * 1000) + (data.propeller3 ** 2/216 * 1000) + (data.propeller4 ** 2/216 * 1000) + (data.propeller5 ** 2/216 * 1000))
         hourly_totals[hour] += total
 
     return jsonify(hourly_totals)
@@ -377,12 +377,12 @@ def get_all_minutes():
     print(all_data)
     for data in all_data:
         minute = data.date.minute
-        minute_totals[minute]['propeller1'] += data.propeller1 * 10 * 10**-3
-        minute_totals[minute]['propeller2'] += data.propeller2 * 10 * 10**-3
-        minute_totals[minute]['propeller3'] += data.propeller3 * 10 * 10**-3
-        minute_totals[minute]['propeller4'] += data.propeller4 * 10 * 10**-3
-        minute_totals[minute]['propeller5'] += data.propeller5 * 10 * 10**-3
-        minute_totals[minute]['total'] += ((data.propeller1 * 10 * 10**-3) + (data.propeller2 * 10 * 10**-3) + (data.propeller3 * 10 * 10**-3) + (data.propeller4 * 10 * 10**-3) + (data.propeller5 * 10 * 10**-3))
+        minute_totals[minute]['propeller1'] += data.propeller1 ** 2/216 * 1000
+        minute_totals[minute]['propeller2'] += data.propeller2 ** 2/216 * 1000
+        minute_totals[minute]['propeller3'] += data.propeller3 ** 2/216 * 1000
+        minute_totals[minute]['propeller4'] += data.propeller4 ** 2/216 * 1000
+        minute_totals[minute]['propeller5'] += data.propeller5 ** 2/216 * 1000
+        minute_totals[minute]['total'] += ((data.propeller1 ** 2/216 * 1000) + (data.propeller2 ** 2/216 * 1000) + (data.propeller3 ** 2/216 * 1000) + (data.propeller4 ** 2/216 * 1000) + (data.propeller5 ** 2/216 * 1000))
 
     return jsonify(minute_totals)
 # -----------------------------------------------------------------------
@@ -450,7 +450,7 @@ def get_week():
 
     week_data = TotalDay.query.filter(TotalDay.date >= week_start, TotalDay.date <= week_end).all()
 
-    week_totals = {day.date.strftime('%A, %Y-%m-%d'): (day.total * 10 * 10**-3) for day in week_data}
+    week_totals = {day.date.strftime('%A, %Y-%m-%d'): (day.total ** 2/216 * 1000) for day in week_data}
     total_week = sum(day.total for day in week_data)
 
     return jsonify({'week_totals': week_totals, 'total_week': total_week})
