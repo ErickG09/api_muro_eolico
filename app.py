@@ -12,7 +12,7 @@ from flask_cors import CORS
 from flask_migrate import Migrate
 from datetime import date, timedelta
 import pytz
-from sqlalchemy import cast, Date
+from sqlalchemy import cast, Date, func
 
 app = Flask(__name__)
 CORS(app)
@@ -400,6 +400,29 @@ def get_hour_by_number(number):
 
     return jsonify({'hour': number, 'total': total})
 
+# -----------------------------------------------------------------------
+@app.route(BASE_URL + '/get_totals', methods=['GET'])
+def get_totals():
+    # Realiza una consulta para sumar los propellers por grupo
+    results = (
+        db.session.query(
+            WallData.group,
+            func.sum(
+                WallData.propeller1 +
+                WallData.propeller2 +
+                WallData.propeller3 +
+                WallData.propeller4 +
+                WallData.propeller5
+            ).label('total')
+        )
+        .group_by(WallData.group)
+        .all()
+    )
+    
+    # Convierte los resultados a un diccionario
+    totals = {f'{row[0]}': row[1] for row in results}
+    
+    return jsonify(totals)
 #- Fin de GET para WallData-----------------------------------------------
 
 # GETs | TotalDay -------------------------------------------------------
