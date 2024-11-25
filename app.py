@@ -420,7 +420,7 @@ def get_totals():
     )
     
     # Convierte los resultados a un diccionario
-    totals = {f'{row[0]}': row[1] for row in results}
+    totals = {f'group{row[0]}': row[1] for row in results}
     
     return jsonify(totals)
 #- Fin de GET para WallData-----------------------------------------------
