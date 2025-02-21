@@ -16,8 +16,9 @@ from sqlalchemy import cast, Date, func
 # fsd
 app = Flask(__name__)
 CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
+# app.config['POSTGRES_URL'] = os.getenv('POSTGRES_URL')
  
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('POSTGRES_URL')
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)  # Inicializar Flask-Migrate
 
