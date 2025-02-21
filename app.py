@@ -1,7 +1,7 @@
 #   Alfredo Barranco Ahued
 #   5 de octubre de 2024
 #   ORM para la base de datos de la Pared Eólica para ASE II
-#   Versión 2.0
+#   Versión 2.1
 
 from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
