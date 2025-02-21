@@ -13,7 +13,7 @@ from flask_migrate import Migrate
 from datetime import date, timedelta
 import pytz
 from sqlalchemy import cast, Date, func
-
+# fsd
 app = Flask(__name__)
 CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
