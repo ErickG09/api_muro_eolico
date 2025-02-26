@@ -14,11 +14,12 @@ from datetime import date, timedelta
 import pytz
 from sqlalchemy import cast, Date, func
 # fsd
+
+load_dotenv()
 app = Flask(__name__)
 CORS(app)
-# app.config['POSTGRES_URL'] = os.getenv('POSTGRES_URL')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
  
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('POSTGRES_URL')
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)  # Inicializar Flask-Migrate
 
@@ -580,4 +581,3 @@ if __name__ == '__main__':
 # -----------------------------------------------------------------------
 # FIN DE | METODOS HTTP
 # -----------------------------------------------------------------------
-
