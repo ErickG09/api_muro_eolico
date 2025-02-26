@@ -15,7 +15,6 @@ import pytz
 from sqlalchemy import cast, Date, func
 # fsd
 
-load_dotenv()
 app = Flask(__name__)
 CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
