@@ -14,6 +14,7 @@ from datetime import date, timedelta
 import pytz
 from sqlalchemy import cast, Date, func
 
+# Configuración inicial
 app = Flask(__name__)
 CORS(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
