@@ -196,6 +196,17 @@ def update_total_all(total_sum):
 def home():
     return "Welcome to my ORM app!"
 
+from sqlalchemy import text
+
+@app.route("/test-db")
+def test_db():
+    try:
+        db.session.execute(text("SELECT 1"))  # ✅ Corrección con text()
+        return {"status": "success", "message": "Connected to DB"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}, 500
+
+
 # ---POST---------------------------------------------------------------
 
 @app.route(BASE_URL + '/new', methods=['POST'])
@@ -492,3 +503,5 @@ if __name__ == '__main__':
     app.run(debug=True)
 
 # Cambios terminados v1  
+
+
