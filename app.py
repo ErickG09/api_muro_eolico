@@ -265,15 +265,20 @@ def create():
     return jsonify({'message': 'Data not saved. Total sum is less than 0.2'})
 
 # ---GET----------------------------------------------------------------
+
 @app.route(BASE_URL + '/readLatest', methods=['GET'])
 def read_latest():
     latest_data = WallData.query.order_by(WallData.id.desc()).first()
     return jsonify(latest_data.to_json()) if latest_data else jsonify({'message': 'No data found'})
 
-@app.route(BASE_URL + '/readTempLatest/<int:number>', methods=['GET'])
+@app.route(BASE_URL + '/readTempLatest', methods=['GET'])
 def read_temp_latest(number):
-    latest_data = TempWallData.query.filter_by(group=number).order_by(TempWallData.id.desc()).first()
-    return jsonify(latest_data.to_json()) if latest_data else jsonify({'message': 'No data found'})
+    latest_data = TempWallData.query.filter(TempWallData.group == number).order_by(TempWallData.id.desc()).first()
+    if latest_data:
+        return jsonify(latest_data.to_json())
+    else:
+        return jsonify({'message': f'No data found for group {number}'}), 404
+
 
 @app.route(BASE_URL + '/readAll', methods=['GET'])
 def read_all():
@@ -463,6 +468,9 @@ def get_total():
         return jsonify({'total': 0})
     else:
         return jsonify(total_object.to_json())
+    
+
+
 
 # ---DELETE-------------------------------------------------------------
 
