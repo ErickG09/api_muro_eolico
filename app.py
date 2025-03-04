@@ -19,6 +19,7 @@ load_dotenv()
 
 # Crear aplicación Flask
 app = Flask(__name__)
+CORS(app)  # Esto permite peticiones desde cualquier origen
 
 # Configurar SQLAlchemy con la URL de la base de datos
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI')
@@ -32,9 +33,6 @@ BASE_URL = "/api/v1"
 mexico_tz = pytz.timezone('America/Mexico_City')
 
 migrate = Migrate(app, db)
-
-# Configurar CORS permitiendo solo el dominio de tu Next.js
-CORS(app, resources={r"/*": {"origins": ["https://muro-eolico-ibero.vercel.app/", "http://localhost:3000"]}})
 
 # -----------------------------------------------------------------------
 # MODELOS: CREACIÓN DE TABLAS
