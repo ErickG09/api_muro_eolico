@@ -271,7 +271,7 @@ def read_latest():
     latest_data = WallData.query.order_by(WallData.id.desc()).first()
     return jsonify(latest_data.to_json()) if latest_data else jsonify({'message': 'No data found'})
 
-@app.route(BASE_URL + '/readTempLatest', methods=['GET'])
+@app.route(BASE_URL + '/readTempLatest/<int:number>', methods=['GET'])
 def read_temp_latest(number):
     latest_data = TempWallData.query.filter(TempWallData.group == number).order_by(TempWallData.id.desc()).first()
     if latest_data:
