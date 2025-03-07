@@ -163,6 +163,22 @@ class TotalAll(db.Model):
     def __repr__(self):
         return '<TotalAll %r>' % self.total
 
+class SystemStatus(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    status = db.Column(db.Integer, nullable=False, default=0)  # 0 = offline, 1 = online
+    last_update = db.Column(db.DateTime, nullable=False, default=datetime.now(mexico_tz))
+
+    def __init__(self, status):
+        self.status = status
+        self.last_update = datetime.now(mexico_tz)
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "status": self.status,
+            "lastUpdate": self.last_update.strftime('%Y-%m-%d %H:%M:%S')
+        }
+
 # -----------------------------------------------------------------------
 # INICIO DE | FUNCIONES
 # -----------------------------------------------------------------------
@@ -303,9 +319,50 @@ def create():
         else:
             return jsonify({'message': 'Data not saved. Total sum is less than 0.2'})
 
+@app.route(BASE_URL + "/update", methods=["POST"])
+def update_status():
+    try:
+        data = request.get_json()
+        if "status" not in data:
+            return jsonify({"error": "Missing 'status' field"}), 400
+        
+        status = int(data["status"])
+        if status not in [0, 1]:
+            return jsonify({"error": "Invalid status value. Must be 0 or 1"}), 400
+        
+        # Buscar el registro actual (solo debería haber uno)
+        system_status = SystemStatus.query.first()
+        
+        if system_status:
+            system_status.status = status
+            system_status.last_update = datetime.now(mexico_tz)
+        else:
+            system_status = SystemStatus(status=status)
+            db.session.add(system_status)
+        
+        db.session.commit()
+
+        return jsonify({"message": "Status updated", "status": system_status.status, "lastUpdate": system_status.last_update.strftime('%Y-%m-%d %H:%M:%S')}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ---GET----------------------------------------------------------------
 
 # GETs | WallData
+
+@app.route(BASE_URL + "/status", methods=["GET"])
+def get_status():
+    system_status = SystemStatus.query.first()
+    
+    if not system_status:
+        return jsonify({"status": 0, "message": "No status found"}), 404
+
+    return jsonify({
+        "status": system_status.status,
+        "lastUpdate": system_status.last_update.strftime('%Y-%m-%d %H:%M:%S')
+    }), 200
+
 
 @app.route(BASE_URL + '/readTempLatest/<number>', methods=['GET'])
 def readTempLatest(number):
