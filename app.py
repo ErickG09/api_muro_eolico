@@ -166,18 +166,22 @@ class TotalAll(db.Model):
 class SystemStatus(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     status = db.Column(db.Integer, nullable=False, default=0)  # 0 = offline, 1 = online
-    last_update = db.Column(db.DateTime, nullable=False, default=datetime.now(mexico_tz))
+    last_update = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(pytz.utc))  # Guardar en UTC
 
     def __init__(self, status):
         self.status = status
-        self.last_update = datetime.now(mexico_tz)
+        self.last_update = datetime.now(pytz.utc)  # Guardar en UTC
 
     def to_json(self):
+        # Convertir la fecha UTC almacenada a la zona horaria de México antes de enviarla
+        last_update_mx = self.last_update.replace(tzinfo=pytz.utc).astimezone(mexico_tz)
         return {
             "id": self.id,
             "status": self.status,
-            "lastUpdate": self.last_update.strftime('%Y-%m-%d %H:%M:%S')
+            "lastUpdate": last_update_mx.strftime('%Y-%m-%d %H:%M:%S')
         }
+
+
 
 # -----------------------------------------------------------------------
 # INICIO DE | FUNCIONES
@@ -326,42 +330,81 @@ def update_status():
         if "status" not in data:
             return jsonify({"error": "Missing 'status' field"}), 400
         
-        status = int(data["status"])
-        if status not in [0, 1]:
+        new_status = int(data["status"])
+        if new_status not in [0, 1]:
             return jsonify({"error": "Invalid status value. Must be 0 or 1"}), 400
         
-        # Buscar el registro actual (solo debería haber uno)
-        system_status = SystemStatus.query.first()
-        
-        if system_status:
-            system_status.status = status
-            system_status.last_update = datetime.now(mexico_tz)
-        else:
-            system_status = SystemStatus(status=status)
-            db.session.add(system_status)
-        
+        # Obtener la fecha actual en UTC para almacenar en la BD
+        current_datetime_utc = datetime.now(pytz.utc)
+
+        # Crear un nuevo registro **siempre**, sin importar si el estado es el mismo o no
+        new_log = SystemStatus(status=new_status)
+        db.session.add(new_log)
         db.session.commit()
 
-        return jsonify({"message": "Status updated", "status": system_status.status, "lastUpdate": system_status.last_update.strftime('%Y-%m-%d %H:%M:%S')}), 200
+        # Convertir la fecha almacenada en UTC a la zona horaria de México antes de enviarla
+        last_update_mx = new_log.last_update.astimezone(mexico_tz)
+        formatted_last_update = last_update_mx.strftime('%Y-%m-%d %H:%M:%S')
+
+        return jsonify({
+            "message": "New status recorded",
+            "status": new_status,
+            "lastUpdate": formatted_last_update
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # ---GET----------------------------------------------------------------
 
 # GETs | WallData
 
+@app.route(BASE_URL + "/statusHistory", methods=["GET"])
+def get_status_history():
+    logs = SystemStatus.query.order_by(SystemStatus.last_update.desc()).all()
+
+    history = [
+        {
+            "id": log.id,
+            "status": log.status,
+            "lastUpdate": log.last_update.replace(tzinfo=pytz.utc).astimezone(mexico_tz).strftime('%Y-%m-%d %H:%M:%S')
+        }
+        for log in logs
+    ]
+
+    return jsonify(history), 200
+
+
+
 @app.route(BASE_URL + "/status", methods=["GET"])
 def get_status():
-    system_status = SystemStatus.query.first()
+    system_status = SystemStatus.query.order_by(SystemStatus.last_update.desc()).first()
     
     if not system_status:
         return jsonify({"status": 0, "message": "No status found"}), 404
 
+    last_update_mx = system_status.last_update.replace(tzinfo=pytz.utc).astimezone(mexico_tz)
+    formatted_last_update = last_update_mx.strftime('%Y-%m-%d %H:%M:%S')
+
     return jsonify({
         "status": system_status.status,
-        "lastUpdate": system_status.last_update.strftime('%Y-%m-%d %H:%M:%S')
+        "lastUpdate": formatted_last_update
     }), 200
+
+
+
+@app.route(BASE_URL + "/resetStatusHistory", methods=["DELETE"])
+def reset_status_history():
+    try:
+        db.session.query(SystemStatus).delete()
+        db.session.commit()
+        return jsonify({"message": "Status history deleted"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+
 
 
 @app.route(BASE_URL + '/readTempLatest/<number>', methods=['GET'])
