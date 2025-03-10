@@ -335,39 +335,42 @@ def update_status():
         new_status = int(data["status"])
         if new_status not in [0, 1]:
             return jsonify({"error": "Invalid status value. Must be 0 or 1"}), 400
-        
-        # Obtener la fecha actual en UTC para almacenar en la BD
-        current_datetime_utc = datetime.now(pytz.utc)
 
-        # Crear un nuevo registro siempre, sin importar si el estado es el mismo o no
+        # Guardar el nuevo estado con timestamp actual
         new_log = SystemStatus(status=new_status)
         db.session.add(new_log)
         db.session.commit()
 
-        # Convertir la fecha almacenada en UTC a la zona horaria de México antes de enviarla
-        last_update_mx = new_log.last_update.astimezone(mexico_tz)
-        formatted_last_update = last_update_mx.strftime('%Y-%m-%d %H:%M:%S')
-
-        # Si el status es 1, iniciar un hilo para reiniciar a 0 en 10 segundos
-        if new_status == 1:
-            def reset_status():
-                time.sleep(180)  # Esperar 10 segundos
-                with app.app_context():
-                    reset_log = SystemStatus(status=0)
-                    db.session.add(reset_log)
-                    db.session.commit()
-                    print("⚠️ Status reset to 0 after 10 seconds")
-
-            threading.Thread(target=reset_status, daemon=True).start()
-
         return jsonify({
             "message": "New status recorded",
             "status": new_status,
-            "lastUpdate": formatted_last_update
+            "lastUpdate": new_log.last_update.strftime('%Y-%m-%d %H:%M:%S')
         }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+def monitor_xiao_status():
+    while True:
+        time.sleep(60)  # Revisar cada 1 minuto
+        with app.app_context():
+            latest_status = SystemStatus.query.order_by(SystemStatus.last_update.desc()).first()
+            
+            if latest_status and latest_status.status == 1:
+                now = datetime.now(pytz.utc)
+                last_update = latest_status.last_update
+
+                # Si han pasado más de 3 minutos sin recibir un 1, guardar un 0
+                if (now - last_update) > timedelta(minutes=3):
+                    print("⚠️ No se ha recibido señal de la Xiao en más de 3 minutos. Registrando estado 0...")
+                    
+                    # Guardar un nuevo estado 0 en la base de datos
+                    new_log = SystemStatus(status=0)
+                    db.session.add(new_log)
+                    db.session.commit()
+                    
+                    print("✅ Estado cambiado a 0 por inactividad de la Xiao.")
 
 
 # ---GET----------------------------------------------------------------
@@ -682,6 +685,10 @@ def deleteAllZeros():
     db.session.query(WallData).filter(WallData.propeller1 == 0, WallData.propeller2 == 0, WallData.propeller3 == 0, WallData.propeller4 == 0, WallData.propeller5 == 0).delete()
     db.session.commit()
     return jsonify({'message': 'All zeros have been deleted'})
+
+
+# Ejecutar la función en un hilo separado para no bloquear la API
+threading.Thread(target=monitor_xiao_status, daemon=True).start()
 
 
 if __name__ == '__main__':
