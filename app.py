@@ -13,6 +13,8 @@ from flask_migrate import Migrate
 from datetime import date, timedelta
 import pytz
 from sqlalchemy import cast, Date, func
+import threading
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -337,7 +339,7 @@ def update_status():
         # Obtener la fecha actual en UTC para almacenar en la BD
         current_datetime_utc = datetime.now(pytz.utc)
 
-        # Crear un nuevo registro **siempre**, sin importar si el estado es el mismo o no
+        # Crear un nuevo registro siempre, sin importar si el estado es el mismo o no
         new_log = SystemStatus(status=new_status)
         db.session.add(new_log)
         db.session.commit()
@@ -345,6 +347,18 @@ def update_status():
         # Convertir la fecha almacenada en UTC a la zona horaria de México antes de enviarla
         last_update_mx = new_log.last_update.astimezone(mexico_tz)
         formatted_last_update = last_update_mx.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Si el status es 1, iniciar un hilo para reiniciar a 0 en 10 segundos
+        if new_status == 1:
+            def reset_status():
+                time.sleep(10)  # Esperar 10 segundos
+                with app.app_context():
+                    reset_log = SystemStatus(status=0)
+                    db.session.add(reset_log)
+                    db.session.commit()
+                    print("⚠️ Status reset to 0 after 10 seconds")
+
+            threading.Thread(target=reset_status, daemon=True).start()
 
         return jsonify({
             "message": "New status recorded",
