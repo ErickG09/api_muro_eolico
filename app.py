@@ -336,30 +336,29 @@ def update_status():
         if new_status not in [0, 1]:
             return jsonify({"error": "Invalid status value. Must be 0 or 1"}), 400
         
+        # Obtener la fecha actual en UTC para almacenar en la BD
         current_datetime_utc = datetime.now(pytz.utc)
 
-        # Obtener el último registro en la base de datos
-        last_status = SystemStatus.query.order_by(SystemStatus.last_update.desc()).first()
+        # Crear un nuevo registro siempre, sin importar si el estado es el mismo o no
+        new_log = SystemStatus(status=new_status)
+        db.session.add(new_log)
+        db.session.commit()
 
-        if new_status == 1:
-            # Si el estado es 1, siempre guardar el registro
-            new_log = SystemStatus(status=new_status)
-            db.session.add(new_log)
-            db.session.commit()
-        else:
-            # Si el estado es 0, verificar si han pasado al menos 3 minutos desde el último registro
-            if last_status and last_status.status == 0:
-                time_diff = (current_datetime_utc - last_status.last_update).total_seconds() / 60
-                if time_diff < 3:
-                    return jsonify({"message": "Status 0 ignored to avoid excessive logging"}), 200
-            
-            # Guardar un nuevo estado 0 si han pasado 3 minutos desde el último 0
-            new_log = SystemStatus(status=new_status)
-            db.session.add(new_log)
-            db.session.commit()
-
+        # Convertir la fecha almacenada en UTC a la zona horaria de México antes de enviarla
         last_update_mx = new_log.last_update.astimezone(mexico_tz)
         formatted_last_update = last_update_mx.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Si el status es 1, iniciar un hilo para reiniciar a 0 en 10 segundos
+        if new_status == 1:
+            def reset_status():
+                time.sleep(120)  # Esperar 10 segundos
+                with app.app_context():
+                    reset_log = SystemStatus(status=0)
+                    db.session.add(reset_log)
+                    db.session.commit()
+                    print("⚠️ Status reset to 0 after 10 seconds")
+
+            threading.Thread(target=reset_status, daemon=True).start()
 
         return jsonify({
             "message": "New status recorded",
@@ -369,8 +368,6 @@ def update_status():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
 
 
 # ---GET----------------------------------------------------------------
