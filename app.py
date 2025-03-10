@@ -351,7 +351,7 @@ def update_status():
         # Si el status es 1, iniciar un hilo para reiniciar a 0 en 10 segundos
         if new_status == 1:
             def reset_status():
-                time.sleep(120)  # Esperar 10 segundos
+                time.sleep(180)  # Esperar 10 segundos
                 with app.app_context():
                     reset_log = SystemStatus(status=0)
                     db.session.add(reset_log)
