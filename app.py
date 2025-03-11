@@ -353,24 +353,27 @@ def update_status():
 
 def monitor_xiao_status():
     while True:
-        time.sleep(60)  # Revisar cada 1 minuto
+        time.sleep(60)  # Revisar cada minuto
         with app.app_context():
             latest_status = SystemStatus.query.order_by(SystemStatus.last_update.desc()).first()
             
-            if latest_status and latest_status.status == 1:
+            if latest_status:
                 now = datetime.now(pytz.utc)
                 last_update = latest_status.last_update
 
-                # Si han pasado más de 3 minutos sin recibir un 1, guardar un 0
-                if (now - last_update) > timedelta(minutes=3):
+                # Si han pasado más de 3 minutos sin recibir un status: 1, registrar un status: 0
+                if latest_status.status == 1 and (now - last_update) > timedelta(minutes=3):
                     print("⚠️ No se ha recibido señal de la Xiao en más de 3 minutos. Registrando estado 0...")
-                    
-                    # Guardar un nuevo estado 0 en la base de datos
-                    new_log = SystemStatus(status=0)
-                    db.session.add(new_log)
-                    db.session.commit()
-                    
-                    print("✅ Estado cambiado a 0 por inactividad de la Xiao.")
+
+                    # Verificar si ya hay un status 0 reciente para evitar registros duplicados
+                    last_zero_status = SystemStatus.query.filter_by(status=0).order_by(SystemStatus.last_update.desc()).first()
+
+                    if not last_zero_status or (now - last_zero_status.last_update) > timedelta(minutes=3):
+                        new_log = SystemStatus(status=0)
+                        db.session.add(new_log)
+                        db.session.commit()
+                        print("✅ Estado cambiado a 0 por inactividad de la Xiao.")
+
 
 
 # ---GET----------------------------------------------------------------
