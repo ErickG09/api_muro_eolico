@@ -373,9 +373,6 @@ def monitor_xiao_status():
                     
                     print("✅ Estado cambiado a 0 por inactividad de la Xiao.")
 
-
-
-
 # ---GET----------------------------------------------------------------
 
 # GETs | WallData
@@ -688,6 +685,34 @@ def deleteAllZeros():
     db.session.query(WallData).filter(WallData.propeller1 == 0, WallData.propeller2 == 0, WallData.propeller3 == 0, WallData.propeller4 == 0, WallData.propeller5 == 0).delete()
     db.session.commit()
     return jsonify({'message': 'All zeros have been deleted'})
+# -----------------------------------------------------------------------
+
+@app.route(BASE_URL + '/deleteLastStatus', methods=['DELETE'])
+def delete_last_status():
+    try:
+        last_entry = SystemStatus.query.order_by(SystemStatus.id.desc()).first()
+        if last_entry:
+            db.session.delete(last_entry)
+            db.session.commit()
+            return jsonify({"message": "Last status entry deleted", "deleted_entry": last_entry.to_json()}), 200
+        else:
+            return jsonify({"message": "No status entries found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+# -----------------------------------------------------------------------
+
+@app.route(BASE_URL + '/deleteLastWallData', methods=['DELETE'])
+def delete_last_wall_data():
+    try:
+        last_entry = WallData.query.order_by(WallData.id.desc()).first()
+        if last_entry:
+            db.session.delete(last_entry)
+            db.session.commit()
+            return jsonify({"message": "Last WallData entry deleted", "deleted_entry": last_entry.to_json()}), 200
+        else:
+            return jsonify({"message": "No WallData entries found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # Ejecutar la función en un hilo separado para no bloquear la API
