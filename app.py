@@ -662,8 +662,6 @@ def get_total():
 
 
 
-
-
 # ---DELETE-------------------------------------------------------------
 @app.route(BASE_URL + '/resetAll', methods=['DELETE'])
 def resetAll():
@@ -713,6 +711,30 @@ def delete_last_wall_data():
             return jsonify({"message": "No WallData entries found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+
+@app.route(BASE_URL + '/deleteRangeWallData', methods=['DELETE'])
+def delete_range_wall_data():
+    try:
+        data = request.get_json()
+        start_id = data.get("start_id")
+        end_id = data.get("end_id")
+
+        if start_id is None or end_id is None:
+            return jsonify({"error": "Missing 'start_id' or 'end_id' in request"}), 400
+
+        # Eliminar el rango especificado
+        deleted = WallData.query.filter(WallData.id >= start_id, WallData.id <= end_id).delete(synchronize_session=False)
+        db.session.commit()
+
+        return jsonify({
+            "message": f"{deleted} entries deleted from WallData",
+            "range": f"{start_id} to {end_id}"
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 # Ejecutar la función en un hilo separado para no bloquear la API
