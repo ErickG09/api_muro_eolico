@@ -736,6 +736,41 @@ def delete_range_wall_data():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route(BASE_URL + '/updateStatusRange', methods=['PUT'])
+def update_status_range():
+    try:
+        data = request.get_json()
+        start_id = data.get("start_id")
+        end_id = data.get("end_id")
+
+        if start_id is None or end_id is None:
+            return jsonify({"error": "Missing 'start_id' or 'end_id'"}), 400
+
+        # Filtrar solo los registros con status = 0 dentro del rango
+        entries = SystemStatus.query.filter(
+            SystemStatus.id >= start_id,
+            SystemStatus.id <= end_id,
+            SystemStatus.status == 0
+        ).all()
+
+        updated_ids = []
+
+        for entry in entries:
+            entry.status = 1
+            updated_ids.append(entry.id)
+            # No se actualiza last_update
+
+        db.session.commit()
+
+        return jsonify({
+            "message": f"{len(updated_ids)} entries updated from 0 to 1 (timestamp preserved)",
+            "updated_ids": updated_ids
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 
 # Ejecutar la función en un hilo separado para no bloquear la API
 threading.Thread(target=monitor_xiao_status, daemon=True).start()
